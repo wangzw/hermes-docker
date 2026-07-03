@@ -6,3 +6,6 @@
 
 # 本地工具缓存
 /.playwright-cli/
+
+# nginx-proxy / acme 若改用 bind mount 时的运行时目录
+/nginx/

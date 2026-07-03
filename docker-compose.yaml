@@ -1,27 +1,36 @@
-# Hermes Agent 增强镜像部署配置。
+# Hermes Agent 增强镜像 —— 本地/简单部署（直连主机端口，无 HTTPS）。
+# 需要 nginx 反代 + HTTPS 的生产部署见 docker-compose.https.yaml。
+#
 # 首次使用：
-#   1) cp .env.example .env        并填入密钥
-#   2) cp data/config.yaml.example data/config.yaml   并配置 dashboard.basic_auth
+#   1) cp .env.example .env        并填入密钥、DASHBOARD_USERNAME/PASSWORD
+#   2) cp data/config.yaml.example data/config.yaml   并配置 provider/model
 #   3) docker compose up -d
 #
 # 端口：
-#   9119  Dashboard（Web 控制台）—— 必须配 basic_auth，否则新版拒绝绑定 0.0.0.0
-#   8642  网关 OpenAI 兼容 API —— 需 API_SERVER_HOST/API_SERVER_KEY 才开启
+#   9119  Dashboard（Web 控制台）—— 用 .env 的用户名密码登录
+#   8642  网关 OpenAI 兼容 API —— 用 API_SERVER_KEY(Bearer) 访问
 services:
   hermes:
     image: ghcr.io/wangzw/hermes-docker:latest
     container_name: hermes
     restart: unless-stopped
-    # 密钥与开关从 .env 注入
+    # 以 gateway 模式长驻运行：s6 监管 gateway + dashboard，容器保活。
+    # 不给命令会跑交互式 agent，无 TTY 时会立即退出并拉垮容器。
+    command: gateway run
     env_file:
       - .env
     environment:
-      # 网关 OpenAI 兼容 API(8642) 默认关闭，这里显式开启并绑定 0.0.0.0
-      # （宿主端口映射要求容器内绑 0.0.0.0）。API_SERVER_KEY 来自 .env。
       HERMES_HOME: /opt/data
+      # Dashboard(9119)：开启 + 用 .env 的用户名密码认证。
+      # 新版镜像在非 loopback 绑定时强制要求认证，否则启动即失败；
+      # 设这两个变量即启用内置 basic provider（零基建，无需手动生成 hash）。
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: ${DASHBOARD_USERNAME:?请在 .env 设置 DASHBOARD_USERNAME}
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: ${DASHBOARD_PASSWORD:?请在 .env 设置 DASHBOARD_PASSWORD}
+      # 网关 OpenAI 兼容 API(8642) 默认关闭，这里显式绑定 0.0.0.0；
+      # API_SERVER_KEY 来自 .env。
       API_SERVER_HOST: "0.0.0.0"
     volumes:
-      # 持久化数据、配置、密钥
       - ./data:/opt/data
     ports:
       - "9119:9119"   # Dashboard

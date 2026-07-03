@@ -1,0 +1,86 @@
+# Hermes Agent 增强镜像 —— 生产 HTTPS 部署。
+#
+# 用 nginx-proxy 反向代理 + acme-companion(基于 acme.sh) 自动签发/续期
+# Let's Encrypt 证书，把 Dashboard(9119) 暴露在 https://${DOMAIN}。
+# Dashboard 用 .env 的用户名密码登录；网关 API(8642) 直连主机端口(Bearer 令牌保护)。
+#
+# 前置条件：
+#   1) ${DOMAIN} 已解析到本机公网 IP；
+#   2) 本机 80/443 端口可从公网访问（ACME HTTP-01 挑战需要）；
+#   3) cp .env.example .env 并设置 DOMAIN / ACME_EMAIL / DASHBOARD_USERNAME / DASHBOARD_PASSWORD。
+#
+# 启动：docker compose -f docker-compose.https.yaml up -d
+# 首次调试证书时建议先用 staging（见下方 hermes.environment 的 LETSENCRYPT_TEST 注释），
+# 避免触发 Let's Encrypt 生产环境频率限制。
+services:
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy:1.11.2
+    container_name: hermes-nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - conf:/etc/nginx/conf.d
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - certs:/etc/nginx/certs:ro
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    labels:
+      # acme-companion 据此标签自动定位并 reload 本 nginx-proxy
+      com.github.nginx-proxy.nginx: "true"
+
+  acme-companion:
+    image: nginxproxy/acme-companion:2.7.1
+    container_name: hermes-acme
+    restart: unless-stopped
+    depends_on:
+      - nginx-proxy
+    volumes:
+      - conf:/etc/nginx/conf.d
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - certs:/etc/nginx/certs:rw
+      - acme:/etc/acme.sh
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # 证书到期/续期通知邮箱，也是各站点 LETSENCRYPT_EMAIL 的默认值
+      DEFAULT_EMAIL: ${ACME_EMAIL:?请在 .env 设置 ACME_EMAIL}
+      # 显式指定要协同的 nginx-proxy 容器名（比标签自动发现更可靠）
+      NGINX_PROXY_CONTAINER: hermes-nginx-proxy
+
+  hermes:
+    image: ghcr.io/wangzw/hermes-docker:latest
+    container_name: hermes
+    restart: unless-stopped
+    command: gateway run
+    env_file:
+      - .env
+    environment:
+      HERMES_HOME: /opt/data
+      # Dashboard：开启 + .env 用户名密码认证（详见 docker-compose.yaml 注释）
+      HERMES_DASHBOARD: "1"
+      HERMES_DASHBOARD_BASIC_AUTH_USERNAME: ${DASHBOARD_USERNAME:?请在 .env 设置 DASHBOARD_USERNAME}
+      HERMES_DASHBOARD_BASIC_AUTH_PASSWORD: ${DASHBOARD_PASSWORD:?请在 .env 设置 DASHBOARD_PASSWORD}
+      API_SERVER_HOST: "0.0.0.0"
+      # ---- nginx-proxy 自动发现（反代 dashboard 9119）----
+      VIRTUAL_HOST: ${DOMAIN:?请在 .env 设置 DOMAIN}
+      VIRTUAL_PORT: "9119"
+      # ---- acme-companion 自动签发证书 ----
+      LETSENCRYPT_HOST: ${DOMAIN}
+      LETSENCRYPT_EMAIL: ${ACME_EMAIL}
+      # 调试证书时取消下一行注释，改用 Let's Encrypt staging（避免生产频率限制）：
+      # LETSENCRYPT_TEST: "true"
+    expose:
+      - "9119"        # 仅在 docker 网络内暴露给 nginx-proxy，不映射到主机
+    ports:
+      - "8642:8642"   # 网关 OpenAI 兼容 API 直连（Bearer 令牌保护）
+    volumes:
+      - ./data:/opt/data
+
+volumes:
+  conf:
+  vhost:
+  html:
+  certs:
+  acme:
