@@ -14,7 +14,7 @@
 
 1. **触发**：每周一 06:00 UTC（cron）、手动 `workflow_dispatch`、以及 `Dockerfile`/workflow/脚本变更 push。
 2. `prepare`：通过 GitHub API 解析 `NousResearch/hermes-agent` 的最新 release tag（手动触发可用 `hermes_version` 覆盖）。
-3. `build`（matrix）：**不使用 QEMU**。amd64 在 `ubuntu-latest`、arm64 在 `ubuntu-24.04-arm` 原生 runner 上各自构建，
+3. `build`（matrix）：**不使用 QEMU**。amd64 在 `ubuntu-24.04`、arm64 在 `ubuntu-24.04-arm` 原生 runner 上各自构建，
    本机原生跑**冒烟测试**（校验 vim/tmux/glab/claude 版本 + hermes 命令），通过后按 digest 推送到 GHCR。
 4. `merge`：用 `docker buildx imagetools create` 把两个架构的 digest 合并成多架构 manifest，打 `<release-tag>` 与 `latest`，并校验 manifest 含 amd64+arm64。
 
