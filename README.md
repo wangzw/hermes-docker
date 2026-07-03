@@ -1,7 +1,7 @@
 # hermes-docker
 
 在 [NousResearch/hermes-agent](https://github.com/NousResearch/hermes-agent) 官方镜像基础上，
-叠加常用工具（**vim / tmux / glab / claude code**）的增强版多架构镜像，
+叠加常用工具（**vim / tmux / glab / claude code / opencode**）的增强版多架构镜像，
 每周自动跟踪最新 release 构建并推送到 GitHub Container Registry。
 
 - 镜像：`ghcr.io/wangzw/hermes-docker:latest`（也带 `:<hermes-release-tag>`）
@@ -15,7 +15,7 @@
 1. **触发**：每周一 06:00 UTC（cron）、手动 `workflow_dispatch`、以及 `Dockerfile`/workflow/脚本变更 push。
 2. `prepare`：通过 GitHub API 解析 `NousResearch/hermes-agent` 的最新 release tag（手动触发可用 `hermes_version` 覆盖）。
 3. `build`（matrix）：**不使用 QEMU**。amd64 在 `ubuntu-24.04`、arm64 在 `ubuntu-24.04-arm` 原生 runner 上各自构建，
-   本机原生跑**冒烟测试**（校验 vim/tmux/glab/claude 版本 + hermes 命令），通过后按 digest 推送到 GHCR。
+   本机原生跑**冒烟测试**（校验 vim/tmux/glab/claude/opencode 版本 + hermes 命令），通过后按 digest 推送到 GHCR。
 4. `merge`：用 `docker buildx imagetools create` 把两个架构的 digest 合并成多架构 manifest，打 `<release-tag>` 与 `latest`，并校验 manifest 含 amd64+arm64。
 
 镜像内容仅在官方镜像上追加一层工具，**不改动上游的 s6-overlay 启动链**（`ENTRYPOINT` / `CMD` / 服务降权均继承）。
@@ -89,3 +89,4 @@ docker buildx build --load --build-arg HERMES_VERSION="$TAG" -t hermes-enhanced:
 | vim / tmux | debian apt |
 | glab (GitLab CLI) | 官方二进制（`GLAB_VERSION` ARG 可覆盖） |
 | claude code | npm `@anthropic-ai/claude-code`（平台专属原生二进制） |
+| opencode | npm `opencode-ai`（平台专属原生二进制） |

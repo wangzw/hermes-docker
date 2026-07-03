@@ -4,7 +4,7 @@
 #
 # 基础镜像 nousresearch/hermes-agent:<release> 是 NousResearch 官方 Dockerfile
 # 在对应 release 上的多架构（amd64 + arm64）构建产物。这里只在其之上叠加一层
-# 常用工具（vim / tmux / glab / claude code），不改动上游的 s6-overlay 启动链。
+# 常用工具（vim / tmux / glab / claude code / opencode），不改动上游的 s6-overlay 启动链。
 #
 # 上游镜像 PID 1 是 s6-overlay 的 /init，ENTRYPOINT 为
 #   ["/init", "/opt/hermes/docker/main-wrapper.sh"]
@@ -48,5 +48,12 @@ RUN set -eu; \
 RUN npm install -g @anthropic-ai/claude-code && \
     npm cache clean --force && \
     command -v claude
+
+# ---------- opencode CLI ----------
+# opencode-ai 同样通过平台专属可选依赖装配原生二进制（debian=glibc，走非 musl 变体），
+# buildx 在目标架构下执行本层，npm 自动选对。
+RUN npm install -g opencode-ai && \
+    npm cache clean --force && \
+    command -v opencode
 
 # ENTRYPOINT / CMD / USER 全部继承上游镜像，不在此覆盖。
