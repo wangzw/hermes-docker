@@ -1,0 +1,20 @@
+# 复制为 data/config.yaml。
+# 挂载在容器 /opt/data/config.yaml。
+
+# ---------- Provider / 模型（示例：DeepSeek） ----------
+provider: deepseek
+model: deepseek-chat
+
+# ---------- Dashboard(9119) 认证 ----------
+# 新版镜像在无认证时拒绝绑定 0.0.0.0（会崩溃重启刷屏
+# "Refusing to bind dashboard to 0.0.0.0"）。macOS/宿主端口映射要求容器内绑
+# 0.0.0.0，因此必须配置 basic auth。
+#
+# 生成 password_hash：
+#   docker compose exec hermes \
+#     python -c "from plugins.dashboard_auth.basic import hash_password; print(hash_password('你的密码'))"
+# 登录：浏览器打开 http://localhost:9119/login
+dashboard:
+  basic_auth:
+    username: admin
+    password_hash: "<把上面命令输出的 hash 粘到这里>"
