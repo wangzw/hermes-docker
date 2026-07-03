@@ -1,0 +1,28 @@
+# Hermes Agent 增强镜像部署配置。
+# 首次使用：
+#   1) cp .env.example .env        并填入密钥
+#   2) cp data/config.yaml.example data/config.yaml   并配置 dashboard.basic_auth
+#   3) docker compose up -d
+#
+# 端口：
+#   9119  Dashboard（Web 控制台）—— 必须配 basic_auth，否则新版拒绝绑定 0.0.0.0
+#   8642  网关 OpenAI 兼容 API —— 需 API_SERVER_HOST/API_SERVER_KEY 才开启
+services:
+  hermes:
+    image: ghcr.io/wangzw/hermes-docker:latest
+    container_name: hermes
+    restart: unless-stopped
+    # 密钥与开关从 .env 注入
+    env_file:
+      - .env
+    environment:
+      # 网关 OpenAI 兼容 API(8642) 默认关闭，这里显式开启并绑定 0.0.0.0
+      # （宿主端口映射要求容器内绑 0.0.0.0）。API_SERVER_KEY 来自 .env。
+      HERMES_HOME: /opt/data
+      API_SERVER_HOST: "0.0.0.0"
+    volumes:
+      # 持久化数据、配置、密钥
+      - ./data:/opt/data
+    ports:
+      - "9119:9119"   # Dashboard
+      - "8642:8642"   # OpenAI 兼容 API
