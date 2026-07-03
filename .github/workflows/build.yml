@@ -35,7 +35,7 @@ permissions:
 jobs:
   # ---------- 解析 release tag 与镜像名 ----------
   prepare:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.ver.outputs.tag }}
       image: ${{ steps.img.outputs.name }}
@@ -69,7 +69,7 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
@@ -149,7 +149,7 @@ jobs:
   merge:
     needs: [prepare, build]
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: 下载各架构 digest
         uses: actions/download-artifact@v4
@@ -196,5 +196,5 @@ jobs:
             echo ""
             echo "- 基础 release: \`${TAG}\`"
             echo "- 镜像: \`${IMG}:${TAG}\` / \`${IMG}:latest\`"
-            echo "- 架构: linux/amd64 (ubuntu-latest) + linux/arm64 (ubuntu-24.04-arm)"
+            echo "- 架构: linux/amd64 (ubuntu-24.04) + linux/arm64 (ubuntu-24.04-arm)"
           } >> "$GITHUB_STEP_SUMMARY"
